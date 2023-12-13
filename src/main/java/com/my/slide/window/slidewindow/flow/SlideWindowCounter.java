@@ -47,7 +47,7 @@ public class SlideWindowCounter {
         threadPool.shutdown();
     }
 
-    public int getMinuteBucket(Date time) {
+    public int getMinuteBucket(Date time) { // 获取当前时间对应的分钟数，也就是当前对应的桶的位置
         return new DateTime(time).getMinuteOfHour();
     }
 
@@ -67,6 +67,15 @@ public class SlideWindowCounter {
 
     private List<String> getMulKeys(String token, int bucket) {
         List<String> keys = new ArrayList<String>(windowSize * 2);
+        // 获取当前窗口之前几个窗口，也就是获取近windowSize分钟内的访问次数
+        /**
+         * ----------------------------------------------------------------
+         * |    |           |           |        |    |    |    |    |    |
+         * |    | bucket-2  | bucket-1  | bucket |    |    |    |    |    |
+         * |    |           |           |        |    |    |    |    |    |
+         * ----------------------------------------------------------------
+         * 每一个窗口代表1分钟，此处遍历为了获取最近的windowSize个窗口
+         */
         for (int i = 0; i < windowSize; i++) {
             keys.add(keyOfBucket(token, (MINUTES_IN_HOUR + bucket - i) % MINUTES_IN_HOUR));
         }
@@ -76,6 +85,7 @@ public class SlideWindowCounter {
     private void increaseInRedis(String key) {
         log.info("slide window redis key:" + key);
         int expireTime = windowSize * MINUTES_IN_HOUR;
+        // 第一次设置key值后，不进行加1处理，之后再次设置key值时，进行加1处理
         Boolean isFirstSet = redisHelper.setIfAbsent(key, "1", expireTime, TimeUnit.SECONDS);
         if (!(isFirstSet != null && isFirstSet)) {
             redisHelper.incrby(key, 1);
@@ -83,7 +93,7 @@ public class SlideWindowCounter {
     }
 
     private int calculateAccessTimes(List<String> rlts) {
-        int accessTimes = 0;
+        int accessTimes = 0; // 统计访问次数
         if (rlts != null && rlts.size() > 0) {
             for (String rlt : rlts) {
                 if (rlt != null) {
